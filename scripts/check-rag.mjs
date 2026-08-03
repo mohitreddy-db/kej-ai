@@ -1,0 +1,23 @@
+import assert from "node:assert/strict";
+import { loadDashboardData } from "../lib/dashboard-data.mjs";
+import { buildDocuments, contextFrom, readableText, retrieve } from "../lib/rag.mjs";
+
+const data = await loadDashboardData();
+const documents = buildDocuments(data);
+const stock = retrieve("How much stock inventory is available?", documents);
+const forecast = retrieve("Forecast production feed", documents);
+const transporters = retrieve("Who are the best transporters?", documents);
+const buyers = retrieve("Who are the buyers?", documents);
+const customers = retrieve("Who are the best customers?", documents);
+assert.ok(stock.some((document) => document.id === "overview" || document.area.includes("inventory")));
+assert.ok(forecast.some((document) => document.id === "forecast-production"));
+assert.ok(transporters.some((document) => document.id.startsWith("transporter-summary")));
+assert.match(contextFrom(transporters), /SRI KRISHNA LOGISTICS/);
+assert.match(contextFrom(transporters), /averageAwardedRate=₹496.25\/MT/);
+assert.ok(buyers.some((document) => document.area.includes("buyer")));
+assert.ok(customers.some((document) => document.id === "customer-summary"));
+assert.match(contextFrom(customers), /dispatchedValueINR/);
+assert.match(contextFrom(stock), /Source:/);
+assert.equal(readableText("## Result\n\n**NMDC**\n- **26 cases**"), "Result\n\nNMDC\n• 26 cases");
+assert.equal(readableText("| Month | Feed |\n|---|---:|\n| Jul | 21,938 |"), "Month — Feed\nJul — 21,938");
+console.log("rag retrieval checks passed");
