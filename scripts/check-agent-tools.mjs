@@ -12,6 +12,12 @@ assert.deepEqual(dispatch.result, {
   customer: "Jindal Saw Limited", date: "2026-06-01", dispatched_quantity_mt: 2164.96, source_row_count: 2,
 });
 
+const customerDispatch = JSON.parse(await highestDailyDispatchTool.invoke({ customer: "X India" }));
+assert.deepEqual(customerDispatch.result, {
+  customer: "X-India", date: "2026-05-07", dispatched_quantity_mt: 1370.46, source_row_count: 1,
+});
+assert.equal(customerDispatch.status, "flagged");
+
 const customer = JSON.parse(await customerMonthlyActivityTool.invoke({ customer: "X-India", start_month: "2026-06", end_month: "2026-06" }));
 assert.deepEqual(customer.result.totals_by_metric_mt, { dispatched_by_kej: 13887.64, ordered_from_kej: 10000 });
 assert.match(customer.limitation, /External\/competitor/);
