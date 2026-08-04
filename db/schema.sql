@@ -778,6 +778,7 @@ BEGIN
     CREATE ROLE kejai_agent_reader NOLOGIN;
   END IF;
 END $$;
+GRANT kejai_agent_reader TO CURRENT_USER WITH INHERIT FALSE, SET TRUE;
 GRANT USAGE ON SCHEMA core, analytics TO kejai_agent_reader;
 GRANT SELECT ON ALL TABLES IN SCHEMA core, analytics TO kejai_agent_reader;
 
