@@ -11,17 +11,22 @@
     "db:check": "node scripts/check-postgres.mjs",
     "check:dashboard-data": "node scripts/check-dashboard-data.mjs",
     "check:calculations": "node scripts/check-calculation-tools.mjs",
+    "check:agent": "node scripts/check-agent-tools.mjs",
     "db:setup": "npm run db:up && npm run db:migrate && npm run db:load && npm run db:check",
     "dev": "vinext dev",
     "build": "vinext build",
     "refresh": "npm run db:load && npm run build",
-    "check": "node scripts/check-dashboard-data.mjs && node scripts/check-calculation-tools.mjs && node scripts/check-blend.mjs && node scripts/check-forecast.mjs && node scripts/check-rag.mjs",
+    "check": "node scripts/check-dashboard-data.mjs && node scripts/check-calculation-tools.mjs && node scripts/check-agent-tools.mjs && node scripts/check-blend.mjs && node scripts/check-forecast.mjs && node scripts/check-rag.mjs",
     "start": "vinext start"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.47.0",
+    "@langchain/core": "^1.2.4",
+    "@langchain/langgraph": "^1.4.8",
+    "@langchain/openai": "^1.5.5",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitejs/plugin-rsc": "^0.5.30",
+    "langchain": "^1.5.4",
     "next": "^16.2.12",
     "pg": "^8.22.0",
     "react": "^19.1.0",
@@ -29,6 +34,7 @@
     "react-server-dom-webpack": "^19.2.8",
     "vinext": "^1.0.0-beta.4",
     "vite": "^8.1.5",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
   }
 }

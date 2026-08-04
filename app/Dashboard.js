@@ -843,19 +843,19 @@ function Trust({ data }) {
 
 function AskData({ data }) {
   const suggestions = [
-    "Which mine under-delivered on Fe most often?",
-    "How much stock do we have right now?",
-    "What remains to be dispatched?",
-    "What did Fe 60–62 lumps cost?",
-    "Forecast production feed for the next three months",
-    "Score transporter performance",
+    "Which customer had the highest dispatch on a single day?",
+    "What is our stock quantity, weighted Fe and landed cost?",
+    "What did X-India order and receive month-wise in FY 2026–27?",
+    "What is the highest inward Fe deviation?",
+    "Can we calculate customer dispatch Fe deviation?",
+    "What data-quality problems need attention?",
   ];
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([{
     question: null,
-    title: "Ask the workbook history",
-    body: "RAG retrieves relevant workbook rows first, then OpenAI writes a sourced answer. Until the API key is configured, verified rule-based answers remain available for the original POC questions.",
+    title: "Ask the analytics agent",
+    body: "The LangGraph agent selects approved read-only tools. PostgreSQL and deterministic services produce every number; missing capabilities return Incomplete.",
     status: "verified",
     source: null,
   }]);
@@ -878,11 +878,12 @@ function AskData({ data }) {
       if (result.ok) {
         setHistory((current) => [...current, {
           question: q,
-          title: "AI answer from retrieved workbook evidence",
+          title: "Agent answer from approved tools",
           body: payload.answer,
-          status: "verified",
+          status: payload.status,
           sources: payload.sources,
           model: payload.model,
+          agent: payload.agent,
         }]);
         setLoading(false);
         return;
@@ -954,12 +955,12 @@ function AskData({ data }) {
   };
   return (
     <>
-      <PageHeader title="Ask kejAI" subtitle="OpenAI RAG over PostgreSQL records, with a verified fallback while the API key is pending." snapshot={`PostgreSQL snapshot ${data.meta.snapshot}`} />
+      <PageHeader title="Ask kejAI" subtitle="LangGraph ReAct orchestration over deterministic PostgreSQL tools." snapshot={`PostgreSQL snapshot ${data.meta.snapshot}`} />
       <section className="chat-shell">
         <div className="chat-suggestions">
           <span>Try a question</span>
           {suggestions.map((item) => <button onClick={() => answer(item)} disabled={loading} key={item}>{item}<b>↗</b></button>)}
-          <div className="chat-rule"><Icon name="shield" /><p><strong>RAG trust rule</strong>Retrieve workbook evidence first, cite the file and sheet, and state when the data is insufficient.</p></div>
+          <div className="chat-rule"><Icon name="shield" /><p><strong>Agent trust rule</strong>The model may choose tools and explain results. It may not create business numbers or bypass missing data.</p></div>
         </div>
         <div className="chat-main">
           <div className="messages">
@@ -967,14 +968,14 @@ function AskData({ data }) {
               <div key={index}>
                 {item.question && <div className="message user">{item.question}</div>}
                 <div className="message assistant">
-                  <Status type={item.status}>{item.model ? `OpenAI RAG · ${item.model}` : item.status}</Status>
+                  <Status type={item.status}>{item.model ? `${item.agent || "OpenAI"} · ${item.model}` : item.status}</Status>
                   <h3>{item.title}</h3><p>{item.body}</p>
                   {item.source && <div className="answer-source"><span>Source</span><strong>{item.source.file}</strong><SourceTag source={item.source} /></div>}
                   {item.sources?.length > 0 && <div className="answer-source"><span>Retrieved sources</span>{item.sources.map((source) => <SourceTag source={source} key={`${source.file}-${source.sheet}-${source.row}`} />)}</div>}
                 </div>
               </div>
             ))}
-            {loading && <div className="message assistant loading-answer"><Status type="incomplete">Retrieving</Status><h3>Checking workbook evidence…</h3></div>}
+            {loading && <div className="message assistant loading-answer"><Status type="incomplete">Working</Status><h3>Selecting and running approved tools…</h3></div>}
           </div>
           <form onSubmit={(event) => { event.preventDefault(); answer(question); }}>
             <input value={question} maxLength={500} disabled={loading} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about stock, quality, dispatch, forecasts or transporters…" />

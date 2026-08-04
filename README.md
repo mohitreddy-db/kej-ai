@@ -12,9 +12,9 @@ The repository does **not** contain KEJ's Excel workbooks or extracted workbook 
 - Source workbook, sheet and row provenance.
 - Verified, Flagged and Incomplete data states.
 - Data-quality checks for balances, ranges, missing links, stale sources and cross-file disagreements.
-- Optional OpenAI Q&A over retrieved PostgreSQL evidence.
+- A LangGraph ReAct agent that selects approved, read-only business tools.
 
-The full agentic orchestration layer is not implemented yet. Business numbers are produced by PostgreSQL and deterministic code.
+The language model only understands the question and selects tools. PostgreSQL and deterministic code produce every business number.
 
 ## Required input files
 
@@ -90,16 +90,18 @@ postgresql://kejai:kejai_local@127.0.0.1:54329/kejai
 
 Set `DATABASE_URL` to use another PostgreSQL database.
 
-## Optional OpenAI Q&A
+## Optional LangGraph agent
 
-The dashboards and calculation tools work without an OpenAI key. To enable the current Q&A endpoint, set the key only in your environment:
+The dashboards and calculation tools work without an OpenAI key. To enable the LangGraph ReAct agent, set the key only in your environment:
 
 ```bash
 export OPENAI_API_KEY="your-key"
-export OPENAI_MODEL="your-supported-model"
+export OPENAI_MODEL="gpt-5.6-sol"
 ```
 
 Never place an API key in source code, the README, a workbook or a committed `.env` file.
+
+The agent currently exposes approved tools for stock quantity/weighted Fe/landed cost, highest daily dispatch, customer month-wise activity, Fe deviation, data-quality status and non-calculating evidence search. Unsupported calculations return Incomplete instead of being improvised by the model.
 
 ## Data handling
 
