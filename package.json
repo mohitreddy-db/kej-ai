@@ -16,7 +16,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "refresh": "npm run db:load && npm run build",
-    "check": "node scripts/check-dashboard-data.mjs && node scripts/check-calculation-tools.mjs && node scripts/check-agent-tools.mjs && node scripts/check-blend.mjs && node scripts/check-forecast.mjs && node scripts/check-rag.mjs",
+    "check": "node scripts/check-dashboard-data.mjs && node scripts/check-calculation-tools.mjs && node scripts/check-agent-tools.mjs && node scripts/check-sql-tool.mjs && node scripts/check-blend.mjs && node scripts/check-forecast.mjs && node scripts/check-rag.mjs",
     "start": "vinext start"
   },
   "dependencies": {

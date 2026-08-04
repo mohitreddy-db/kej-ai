@@ -122,7 +122,7 @@ export OPENAI_MODEL="gpt-5.6-sol"
 
 Never place an API key in source code, the README, a workbook or a committed `.env` file.
 
-The agent currently exposes approved tools for stock quantity/weighted Fe/landed cost, highest daily dispatch, customer month-wise activity, Fe deviation, data-quality status and non-calculating evidence search. Unsupported calculations return Incomplete instead of being improvised by the model.
+The agent uses a restricted, read-only PostgreSQL tool for retrieval, filters, sums, grouping and rankings. Weighted stock, Fe deviation and data-quality rules remain specialized deterministic tools; evidence search never performs calculations. Every SQL result must carry workbook source-row IDs, and unsupported calculations return Incomplete instead of being improvised by the model.
 
 ## Data handling
 

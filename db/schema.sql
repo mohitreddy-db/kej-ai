@@ -749,4 +749,36 @@ SELECT
   count(*) FILTER (WHERE severity = 'info')::integer AS informational_issues
 FROM issues;
 
+CREATE OR REPLACE VIEW analytics.transporter_work_order_activity AS
+SELECT
+  sr.id AS source_row_id,
+  sr.raw_data->>0 AS work_order_number,
+  sr.raw_data->>2 AS work_order_date_text,
+  btrim(sr.raw_data->>5) AS transporter,
+  btrim(sr.raw_data->>7) AS mine,
+  sr.raw_data->>8 AS quantity_text,
+  CASE
+    WHEN sr.raw_data->>8 ~ '^\s*[0-9]+(?:\.[0-9]+)?(?:\s*\+\s*[0-9]+(?:\.[0-9]+)?)*\s*$'
+      THEN (SELECT sum(part::numeric) FROM regexp_split_to_table(sr.raw_data->>8, '\s*\+\s*') part)
+    ELSE NULL
+  END::numeric(18,3) AS awarded_quantity_mt,
+  sr.raw_data->>9 AS source_lot_text,
+  sr.raw_data->>11 AS rate_text
+FROM raw.source_row sr
+JOIN governance.source_file sf ON sf.id = sr.source_file_id
+WHERE sf.import_run_id = (SELECT id FROM governance.import_run WHERE status = 'completed' ORDER BY id DESC LIMIT 1)
+  AND sf.file_name = 'INWARD TRANSPORTER -WORK ORDER FILE-CONTROL SHEET FORMAT.xlsm'
+  AND sr.sheet_name = 'INWARD FINAL 26-27'
+  AND sr.row_number > 2
+  AND nullif(btrim(sr.raw_data->>5), '') IS NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kejai_agent_reader') THEN
+    CREATE ROLE kejai_agent_reader NOLOGIN;
+  END IF;
+END $$;
+GRANT USAGE ON SCHEMA core, analytics TO kejai_agent_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA core, analytics TO kejai_agent_reader;
+
 COMMIT;
