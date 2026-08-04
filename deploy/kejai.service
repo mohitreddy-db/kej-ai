@@ -1,0 +1,19 @@
+[Unit]
+Description=kejAI Operations Control
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kejai
+Group=kejai
+WorkingDirectory=/opt/kejai
+EnvironmentFile=/etc/kejai.env
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

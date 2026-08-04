@@ -90,6 +90,27 @@ postgresql://kejai:kejai_local@127.0.0.1:54329/kejai
 
 Set `DATABASE_URL` to use another PostgreSQL database.
 
+## Deploy on DigitalOcean with Supabase
+
+Use Supabase's **Session pooler** connection string on port `5432` as `DATABASE_URL`, with SSL enabled. The app talks directly to PostgreSQL; no Supabase SDK is needed.
+
+On an Ubuntu droplet, run the Node application as the `kejai` user from `/opt/kejai`. Store secrets outside the repository in `/etc/kejai.env`:
+
+```env
+NODE_ENV=production
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@REGION.pooler.supabase.com:5432/postgres?sslmode=require"
+OPENAI_API_KEY="your-key"
+OPENAI_MODEL="gpt-5.6-sol"
+```
+
+Copy the required workbooks into `/opt/kejai/inputs`, then apply and load the database:
+
+```bash
+sudo -u kejai sh -c 'set -a; . /etc/kejai.env; cd /opt/kejai && npm run db:migrate && npm run db:load && npm run db:check && npm run build'
+```
+
+Install [deploy/kejai.service](deploy/kejai.service) as `/etc/systemd/system/kejai.service` and [deploy/Caddyfile](deploy/Caddyfile) as `/etc/caddy/Caddyfile`. Point the domain's DNS `A` record to the droplet before starting Caddy so it can issue HTTPS automatically.
+
 ## Optional LangGraph agent
 
 The dashboards and calculation tools work without an OpenAI key. To enable the LangGraph ReAct agent, set the key only in your environment:

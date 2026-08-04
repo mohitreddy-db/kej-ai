@@ -802,11 +802,13 @@ function Trust({ data }) {
   const issues = data.trustIssues.filter((item) => severity === "all" || item.severity === severity);
   const flagged = data.trustIssues.filter((item) => item.severity === "flagged").length;
   const incomplete = data.trustIssues.filter((item) => item.severity === "incomplete").length;
+  const affectedRows = new Set(data.trustIssues.map((item) => item.source?.sourceRowId).filter(Boolean)).size;
+  const ruleTypes = new Set(data.trustIssues.map((item) => item.ruleCode)).size;
   return (
     <>
       <PageHeader title="Data trust center" subtitle="What passed, what is suspicious, and what cannot be calculated safely." snapshot="Latest PostgreSQL import run" />
       <section className="metrics four">
-        <Metric label="Checks requiring review" value={format.count(data.trustIssues.length, "issues")} note="No source value was silently changed" calculation="Count of generated flagged and incomplete validation issues" source="Data Trust rules across all prioritised sheets" />
+        <Metric label="Validation findings" value={format.count(data.trustIssues.length, "findings")} note={`${format.count(affectedRows, "source rows")} · ${format.count(ruleTypes, "rule types")}`} calculation="Count of validation findings; one source row may trigger more than one rule" source="Data Trust rules across all prioritised sheets" />
         <Metric label="Flagged" value={format.count(flagged, "issues")} note="Present but conflicting or suspicious" tone="bad" calculation="Count of issues classified as flagged by deterministic validation rules" source="Data Trust rules across all prioritised sheets" />
         <Metric label="Incomplete" value={format.count(incomplete, "issues")} note="Required input missing or broken" tone="warn" calculation="Count of issues classified as incomplete by deterministic validation rules" source="Data Trust rules across all prioritised sheets" />
         <Metric label="Source coverage" value="100%" note="Every displayed detail row has provenance" calculation="Displayed detail records with file, sheet and row ÷ all displayed detail records" source="Extractor-generated source metadata" />
@@ -864,6 +866,7 @@ function AskData({ data }) {
     if (!q || loading) return;
     setQuestion("");
     setLoading(true);
+    let error = "The analytics agent is unavailable. No fallback answer was generated.";
     try {
       const conversation = history.flatMap((item) => [
         ...(item.question ? [{ role: "user", content: item.question }] : []),
@@ -888,69 +891,15 @@ function AskData({ data }) {
         setLoading(false);
         return;
       }
-    } catch {
-      // The verified POC intents below remain usable if the AI endpoint is unavailable.
-    }
-    const lower = q.toLowerCase();
-    let response;
-    if (/mine|supplier/.test(lower) && /(fe|grade|quality|under)/.test(lower)) {
-      const result = data.aggregates.mineQuality[0];
-      response = {
-        title: `${result.supplier} has the lowest average Fe difference`,
-        body: `Across ${result.records} inward-quality records, received Fe averaged ${Math.abs(result.averageDifference).toFixed(2)} points below indicative Fe. ${result.belowShare}% of matched records were below indicative. This is a signal for review, not a final supplier score.`,
-        status: "flagged",
-        source: { file: "Inward quality report (Weekly).xlsx", sheet: "Inward Quality Report", row: "2:111" },
-      };
-    } else if (/stock|inventory/.test(lower)) {
-      response = {
-        title: `${format.tonnes(data.aggregates.overview.currentStock)} of iron ore is recorded`,
-        body: `The current stock report contains ${data.aggregates.overview.stockLots} lots with approximately ${format.crore(data.aggregates.overview.stockValue)} at recorded landed cost. Lots missing landed cost are excluded from valuation.`,
-        status: "verified",
-        source: { file: "HO Stock Report (Daily).xlsx", sheet: "IRON ORE", row: "5:72" },
-      };
-    } else if (/dispatch|sales|order/.test(lower)) {
-      response = {
-        title: `${format.tonnes(data.aggregates.overview.pendingDispatch)} remains to be dispatched`,
-        body: `${data.aggregates.overview.pendingOrders} iron-ore orders have a recorded balance. Open the Sales & Dispatch dashboard to inspect permit readiness by PO.`,
-        status: "verified",
-        source: { file: "Daily Outward Report 2026-27 (Daily).xlsx", sheet: "Outward Details", row: "3:336" },
-      };
-    } else if (/(60|61|62)/.test(lower) && /(price|cost|pay|premium|lump)/.test(lower)) {
-      const lots = data.auctions.filter((item) => item.fe >= 60 && item.fe <= 62 && /10-40|lump/i.test(item.size) && item.currentPrice);
-      const current = lots.reduce((s, i) => s + i.currentPrice, 0) / lots.length;
-      const opening = lots.reduce((s, i) => s + (i.openingPrice || 0), 0) / lots.length;
-      response = {
-        title: `Market price averaged ${format.rupees(current)}/MT for Fe 60–62 lumps`,
-        body: `${lots.length} auction-lot records averaged ${format.rupees(opening)}/MT opening price, a ${format.percent(opening ? (current - opening) / opening * 100 : 0)} market premium. This is market auction data, not verified KEJ paid price, because numeric "Our Price" is missing for most lots.`,
-        status: "incomplete",
-        source: { file: "Auction Rate Chart FY-2026-27.xlsx", sheet: "Consolidated Data", row: "2:636" },
-      };
-    } else if (/transport/.test(lower)) {
-      const top = data.aggregates.transporterSummary[0];
-      response = {
-        title: "A delivery-performance score cannot be verified yet",
-        body: `${top?.transporter || "The leading transporter"} has ${top?.workOrders || 0} FY 2026–27 work orders in the supplied file. The workbook does not contain promised delivery date, actual completion date, delivered quantity, or shortage, so scoring performance would be misleading.`,
-        status: "incomplete",
-        source: { file: "INWARD TRANSPORTER -WORK ORDER FILE-CONTROL SHEET FORMAT.xlsm", sheet: "INWARD FINAL 26-27", row: "3:88" },
-      };
-    } else if (/error|wrong|issue|flag/.test(lower)) {
-      const flagged = data.trustIssues.filter((i) => i.severity === "flagged").length;
-      const incomplete = data.trustIssues.filter((i) => i.severity === "incomplete").length;
-      response = {
-        title: `${flagged} flagged and ${incomplete} incomplete checks need review`,
-        body: "The queue includes broken Excel references, missing landed costs, quality under-delivery, permit gaps, and missing receiving-grade values. No source cell has been automatically changed.",
-        status: "flagged",
-        source: { file: "Multiple workbooks", sheet: "Data Trust rules", row: "See issue queue" },
-      };
-    } else {
-      response = {
-        title: "This question is not supported safely in the POC",
-        body: "Try asking about current stock, pending dispatch, mine quality, Fe 60–62 lump prices, transporter work orders, or data issues. I will not calculate from an unverified interpretation.",
-        status: "incomplete",
-        source: null,
-      };
-    }
-    setHistory((current) => [...current, { question: q, ...response }]);
+      error = payload.error || error;
+    } catch {}
+    setHistory((current) => [...current, {
+      question: q,
+      title: "No answer generated",
+      body: error,
+      status: "incomplete",
+      source: null,
+    }]);
     setLoading(false);
   };
   return (

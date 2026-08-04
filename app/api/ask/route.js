@@ -1,6 +1,9 @@
 import { createKejAgent, parseAgentResult } from "../../../lib/agent.mjs";
 
 const buckets = new Map();
+const clientIp = (request) => request.headers.get("cf-connecting-ip")
+  || request.headers.get("x-forwarded-for")?.split(",")[0].trim()
+  || "unknown";
 
 // ponytail: per-isolate rate limit; replace with a Cloudflare Rate Limiting binding before high public traffic.
 function rateLimited(key) {
@@ -13,14 +16,14 @@ function rateLimited(key) {
 }
 
 async function safetyIdentifier(request) {
-  const input = `${request.headers.get("cf-connecting-ip") || "unknown"}:${request.headers.get("user-agent") || "unknown"}`;
+  const input = `${clientIp(request)}:${request.headers.get("user-agent") || "unknown"}`;
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export async function POST(request) {
   const env = globalThis.__KEJAI_ENV__ || process.env;
-  const client = request.headers.get("cf-connecting-ip") || "unknown";
+  const client = clientIp(request);
   if (rateLimited(client)) return Response.json({ error: "Too many questions. Please try again in ten minutes." }, { status: 429 });
 
   let body;
