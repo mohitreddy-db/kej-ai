@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { AIMessage, ToolMessage } from "@langchain/core/messages";
 import { createKejAgent, parseAgentResult } from "../lib/agent.mjs";
-import { customerMonthlyActivityTool, feDeviationTool, highestDailyDispatchTool, stockPositionTool } from "../lib/agent-tools.mjs";
+import { customerMonthlyActivityTool, dataQualityTool, feDeviationTool, highestDailyDispatchTool, stockPositionTool } from "../lib/agent-tools.mjs";
 
 const stock = JSON.parse(await stockPositionTool.invoke({ category: "all" }));
 assert.equal(stock.result.quantity_mt, 212943.25);
@@ -19,6 +19,11 @@ assert.match(customer.limitation, /External\/competitor/);
 const deviation = JSON.parse(await feDeviationTool.invoke({ comparison: "dispatch_vs_order" }));
 assert.equal(deviation.status, "incomplete");
 assert.deepEqual(deviation.coverage, { rows: 207, withFe: 0 });
+
+const quality = JSON.parse(await dataQualityTool.invoke({}));
+assert.equal(quality.result.open_issue_count, 1869);
+assert.equal(quality.result.lot_linkage.total > 0, true);
+assert.equal(quality.sources.length > 0, true);
 
 assert.equal(typeof createKejAgent({ apiKey: "test-key", safetyIdentifier: "test" }).invoke, "function");
 assert.deepEqual(parseAgentResult({ messages: [
