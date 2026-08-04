@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { assessPurchase, createBlendPlans } from "../lib/blend.mjs";
 import { buildForecasts } from "../lib/forecast.mjs";
 
@@ -139,9 +139,24 @@ function EvidencePanel({ groups }) {
 }
 
 function Info({ calculation, source }) {
+  const ref = useRef(null);
+  const [flip, setFlip] = useState(false);
   const label = `Calculation: ${calculation}. Source: ${source}.`;
+  const place = () => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect) setFlip(rect.left + 310 > window.innerWidth);
+  };
   return (
-    <span className="info-icon" title={label} aria-label={label}>
+    <span
+      ref={ref}
+      className={`info-icon${flip ? " flip" : ""}`}
+      tabIndex={0}
+      role="note"
+      aria-label={label}
+      onMouseEnter={place}
+      onFocus={place}
+      onClick={(event) => event.stopPropagation()}
+    >
       i
       <span role="tooltip"><strong>How it is calculated</strong>{calculation}<strong>Source</strong>{source}</span>
     </span>
@@ -176,6 +191,7 @@ function SectionTitle({ eyebrow, title, text, action, info }) {
 }
 
 function Bars({ data, valueKey = "value", labelKey = "label", formatValue = format.number, tone = "orange" }) {
+  if (!data.length) return <p className="bars-empty">No records available to chart yet.</p>;
   const max = Math.max(...data.map((item) => item[valueKey] || 0), 1);
   return (
     <div className={`bars ${tone}`}>
@@ -416,7 +432,7 @@ function Sales({ data }) {
 
 function Auctions({ data }) {
   const valid = data.auctions.filter((item) => item.currentPrice && item.fe);
-  const avgPremium = valid.reduce((s, i) => s + (i.premium || 0), 0) / valid.length;
+  const avgPremium = valid.length ? valid.reduce((s, i) => s + (i.premium || 0), 0) / valid.length : 0;
   const ourBids = valid.filter((item) => item.ourPrice);
   const mineData = Object.values(valid.reduce((acc, item) => {
     const key = item.mine || "Unknown";
@@ -495,7 +511,7 @@ function Production({ data }) {
   const recovered = rows.reduce((s, i) => s + (i.recovered || 0), 0);
   const tailings = rows.reduce((s, i) => s + (i.tailings || 0), 0);
   const avgFeRows = rows.filter((i) => i.productFe);
-  const avgFe = avgFeRows.reduce((s, i) => s + i.productFe, 0) / avgFeRows.length;
+  const avgFe = avgFeRows.length ? avgFeRows.reduce((s, i) => s + i.productFe, 0) / avgFeRows.length : 0;
   const materialData = Object.values(rows.reduce((acc, item) => {
     const key = item.material.trim();
     acc[key] ||= { label: key, value: 0 };
@@ -854,6 +870,8 @@ function AskData({ data }) {
   ];
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState(null);
+  const messagesRef = useRef(null);
   const [history, setHistory] = useState([{
     question: null,
     title: "Ask the analytics agent",
@@ -861,10 +879,14 @@ function AskData({ data }) {
     status: "verified",
     source: null,
   }]);
+  useEffect(() => {
+    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
+  }, [history, loading, pending]);
   const answer = async (input) => {
     const q = input.trim();
     if (!q || loading) return;
     setQuestion("");
+    setPending(q);
     setLoading(true);
     let error = "The analytics agent is unavailable. No fallback answer was generated.";
     try {
@@ -888,6 +910,7 @@ function AskData({ data }) {
           model: payload.model,
           agent: payload.agent,
         }]);
+        setPending(null);
         setLoading(false);
         return;
       }
@@ -900,6 +923,7 @@ function AskData({ data }) {
       status: "incomplete",
       source: null,
     }]);
+    setPending(null);
     setLoading(false);
   };
   return (
@@ -912,7 +936,7 @@ function AskData({ data }) {
           <div className="chat-rule"><Icon name="shield" /><p><strong>Agent trust rule</strong>The model may choose tools and explain results. It may not create business numbers or bypass missing data.</p></div>
         </div>
         <div className="chat-main">
-          <div className="messages">
+          <div className="messages" ref={messagesRef}>
             {history.map((item, index) => (
               <div key={index}>
                 {item.question && <div className="message user">{item.question}</div>}
@@ -924,6 +948,7 @@ function AskData({ data }) {
                 </div>
               </div>
             ))}
+            {pending && <div className="message user">{pending}</div>}
             {loading && <div className="message assistant loading-answer"><Status type="incomplete">Working</Status><h3>Selecting and running approved tools…</h3></div>}
           </div>
           <form onSubmit={(event) => { event.preventDefault(); answer(question); }}>
@@ -939,6 +964,15 @@ function AskData({ data }) {
 export default function Dashboard({ data, calculations }) {
   const [view, setView] = useState("overview");
   const [mobileNav, setMobileNav] = useState(false);
+  useEffect(() => {
+    document.body.classList.toggle("nav-open", mobileNav);
+    const onKey = (event) => event.key === "Escape" && setMobileNav(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.classList.remove("nav-open");
+    };
+  }, [mobileNav]);
   const evidenceKeys = {
     overview: ["inventory", "purchases", "sales", "production", "auctions", "counterparties"],
     inventory: ["inventory"], inward: ["purchases"], sales: ["sales"], auctions: ["auctions"],
@@ -964,20 +998,20 @@ export default function Dashboard({ data, calculations }) {
     trust: <Trust data={data} />,
     ask: <AskData data={data} />,
   };
-  const navigate = (key) => { setView(key); setMobileNav(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const navigate = (key) => { setView(key); setMobileNav(false); window.scrollTo(0, 0); };
   return (
     <div className="app-shell">
       <aside className={mobileNav ? "open" : ""}>
-        <div className="brand"><div>k<span>ej</span></div><p><strong>kejAI</strong><small>Operations control</small></p></div>
+        <div className="brand"><p><strong>kejAI</strong><small>Operations control</small></p></div>
         <nav>
           <span className="nav-label">Business</span>
           {nav.map(([key, label, icon]) => (
-            <button className={view === key ? "active" : ""} onClick={() => navigate(key)} key={key}><Icon name={icon} />{label}</button>
+            <button className={view === key ? "active" : ""} aria-current={view === key ? "page" : undefined} onClick={() => navigate(key)} key={key}><Icon name={icon} />{label}</button>
           ))}
           <span className="nav-label">Intelligence</span>
-          <button className={view === "calculations" ? "active" : ""} onClick={() => navigate("calculations")}><Icon name="calculator" />Calculation tools</button>
-          <button className={view === "trust" ? "active" : ""} onClick={() => navigate("trust")}><Icon name="shield" />Data trust center<span className="nav-count">{data.trustIssues.length}</span></button>
-          <button className={view === "ask" ? "active" : ""} onClick={() => navigate("ask")}><Icon name="chat" />Ask kejAI</button>
+          <button className={view === "calculations" ? "active" : ""} aria-current={view === "calculations" ? "page" : undefined} onClick={() => navigate("calculations")}><Icon name="calculator" />Calculation tools</button>
+          <button className={view === "trust" ? "active" : ""} aria-current={view === "trust" ? "page" : undefined} onClick={() => navigate("trust")}><Icon name="shield" />Data trust center<span className="nav-count">{data.trustIssues.length}</span></button>
+          <button className={view === "ask" ? "active" : ""} aria-current={view === "ask" ? "page" : undefined} onClick={() => navigate("ask")}><Icon name="chat" />Ask kejAI</button>
         </nav>
         <div className="sidebar-foot">
           <Status type="verified">Read-only POC</Status>
@@ -986,9 +1020,11 @@ export default function Dashboard({ data, calculations }) {
       </aside>
       {mobileNav && <button className="nav-backdrop" onClick={() => setMobileNav(false)} aria-label="Close navigation" />}
       <main>
-        <button className="mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation">☰ <span>kejAI</span></button>
-        <ValidationContext.Provider value={data.validation[view]}>{content[view]}</ValidationContext.Provider>
-        <EvidencePanel groups={evidenceGroups} />
+        <button className="mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation" aria-expanded={mobileNav}>☰ <span>kejAI</span></button>
+        <div className="view" key={view}>
+          <ValidationContext.Provider value={data.validation[view]}>{content[view]}</ValidationContext.Provider>
+          <EvidencePanel groups={evidenceGroups} />
+        </div>
         <footer><span>kejAI Phase 1 POC</span><p>Numbers are read from local PostgreSQL with workbook-row provenance. Missing business rules are shown as incomplete.</p></footer>
       </main>
     </div>
