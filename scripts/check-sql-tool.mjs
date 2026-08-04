@@ -4,6 +4,7 @@ import { runBusinessSql, validateBusinessSql } from "../lib/sql-tool.mjs";
 assert.throws(() => validateBusinessSql("DELETE FROM core.dispatch"), /SELECT/);
 assert.throws(() => validateBusinessSql("SELECT * FROM raw.source_row"), /not available/);
 assert.throws(() => validateBusinessSql("SELECT * FROM core.dispatch"), /source_row_id/);
+assert.equal(validateBusinessSql("SELECT source_row_id FROM core.dispatch;"), "SELECT source_row_id FROM core.dispatch");
 const roleBlocked = await runBusinessSql("SELECT d.source_row_id FROM core.dispatch d, raw.source_row r LIMIT 1");
 assert.match(roleBlocked.error, /not available|permission denied/);
 
@@ -15,6 +16,7 @@ const datedDispatch = await runBusinessSql(`SELECT o.legal_name AS customer, d.d
 assert.equal(datedDispatch.error, undefined, datedDispatch.error);
 assert.equal(datedDispatch.rows[0].dispatched_quantity_mt, 1732.14);
 assert.equal(datedDispatch.sources[0].row, "190");
+assert.deepEqual(datedDispatch.warnings, [{ rule: "MISSING_DISPATCH_LOT", count: 1 }]);
 
 const mayBuyer = await runBusinessSql(`SELECT o.legal_name AS customer, sum(d.quantity_mt)::float8 AS dispatched_quantity_mt,
   array_agg(d.source_row_id) AS source_row_ids

@@ -38,4 +38,9 @@ assert.deepEqual(parseAgentResult({ messages: [
 ]}), {
   answer: "Source-backed answer", status: "flagged", sources: [{ file: "A.xlsx", sheet: "S", row: 2 }], toolCalls: 1,
 });
+assert.equal(parseAgentResult({ messages: [
+  new ToolMessage({ name: "sql", tool_call_id: "1", content: JSON.stringify({ status: "incomplete", error: "Retry" }) }),
+  new ToolMessage({ name: "sql", tool_call_id: "2", content: JSON.stringify({ status: "verified" }) }),
+  new AIMessage("Recovered answer"),
+]}).status, "verified");
 console.log("LangGraph agent tool checks passed.");
