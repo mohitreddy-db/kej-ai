@@ -49,7 +49,7 @@ export async function POST(request) {
     })) : [];
     const result = parseAgentResult(await agent.invoke({
       messages: [...history, { role: "user", content: question }],
-    }, { recursionLimit: 10 }));
+    }, { recursionLimit: 16 }));
     if (!result.answer) return Response.json({ error: "The agent returned an empty answer." }, { status: 502 });
     return Response.json({ ...result, model, agent: "LangGraph ReAct" });
   } catch (error) {
