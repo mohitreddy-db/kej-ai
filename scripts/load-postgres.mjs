@@ -118,6 +118,7 @@ const severities = {
   POSSIBLE_DUPLICATE_ORGANIZATION: "warning",
   QUALITY_INWARD_MISMATCH: "warning",
   PLANNING_STOCK_MISMATCH: "warning",
+  DISPATCH_BEFORE_PO_DATE: "warning",
 };
 
 let runId;
@@ -852,6 +853,20 @@ async function runReconciliations() {
       await issue("ORDER_OVER_DISPATCH", "sales_order_line", row.id, row.source_row_id,
         `Calculated dispatch ${row.calculated_quantity_mt} MT exceeds ordered quantity ${row.ordered_quantity_mt} MT.`);
     }
+  }
+
+  const backdatedRows = (await client.query(`
+    SELECT sol.id, sol.po_number, sol.po_date::text AS po_date, sol.source_row_id,
+      min(d.dispatch_at::date)::text AS first_dispatch_on
+    FROM core.sales_order_line sol
+    JOIN core.dispatch d ON d.sales_order_line_id = sol.id
+    GROUP BY sol.id
+    HAVING min(d.dispatch_at::date) < sol.po_date
+  `)).rows;
+  for (const row of backdatedRows) {
+    await issue("DISPATCH_BEFORE_PO_DATE", "sales_order_line", row.id, row.source_row_id,
+      `PO ${row.po_number} is dated ${row.po_date} but its first dispatch happened on ${row.first_dispatch_on}; the PO date looks wrong and lead-time rankings must exclude it.`,
+      { poDate: row.po_date, firstDispatchOn: row.first_dispatch_on });
   }
 
   const snapshotRows = (await client.query(`

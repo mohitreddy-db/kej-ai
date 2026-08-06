@@ -5,6 +5,9 @@ assert.throws(() => validateBusinessSql("DELETE FROM core.dispatch"), /SELECT/);
 assert.throws(() => validateBusinessSql("SELECT * FROM raw.source_row"), /not available/);
 assert.throws(() => validateBusinessSql("SELECT * FROM core.dispatch"), /source_row_id/);
 assert.equal(validateBusinessSql("SELECT source_row_id FROM core.dispatch;"), "SELECT source_row_id FROM core.dispatch");
+assert.equal(validateBusinessSql("WITH s AS (SELECT source_row_id FROM core.dispatch) SELECT source_row_id FROM s"),
+  "WITH s AS (SELECT source_row_id FROM core.dispatch) SELECT source_row_id FROM s");
+assert.throws(() => validateBusinessSql("WITH s AS (DELETE FROM core.dispatch) SELECT source_row_id FROM s"), /read-only/);
 const roleBlocked = await runBusinessSql("SELECT d.source_row_id FROM core.dispatch d, raw.source_row r LIMIT 1");
 assert.match(roleBlocked.error, /not available|permission denied/);
 

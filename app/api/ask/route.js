@@ -42,7 +42,7 @@ export async function POST(request) {
 
   try {
     const model = env.OPENAI_MODEL || "gpt-5.6-sol";
-    const agent = createKejAgent({ apiKey: env.OPENAI_API_KEY, model, safetyIdentifier: await safetyIdentifier(request) });
+    const agent = await createKejAgent({ apiKey: env.OPENAI_API_KEY, model, safetyIdentifier: await safetyIdentifier(request) });
     const history = Array.isArray(body.history) ? body.history.slice(-6).map((item) => ({
       role: item.role === "assistant" ? "assistant" : "user",
       content: String(item.content || "").slice(0, 800),
